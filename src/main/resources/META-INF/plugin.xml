@@ -1,0 +1,48 @@
+<idea-plugin>
+    <id>org.huxerui</id>
+    <name>HuxerUI</name>
+    <vendor url="https://github.com/HuxerUI">HuxerUI</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.clion</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="org.huxerui.clion.settings.HuxerUISettings"/>
+        <projectService serviceImplementation="org.huxerui.clion.project.HuxerUIProjectService"/>
+        <applicationConfigurable
+                id="org.huxerui.clion.settings"
+                parentId="tools"
+                displayName="HuxerUI"
+                instance="org.huxerui.clion.settings.HuxerUIConfigurable"/>
+        <gotoDeclarationHandler implementation="org.huxerui.clion.resources.HuxerUIResourceGotoHandler"/>
+        <configurationType implementation="org.huxerui.clion.run.HuxerUIConfigurationType"/>
+        <notificationGroup id="HuxerUI" displayType="BALLOON"/>
+    </extensions>
+
+    <actions>
+        <action id="HuxerUI.NewProject"
+                class="org.huxerui.clion.project.NewHuxerUIProjectAction"
+                text="HuxerUI Project..."
+                description="Create a HuxerUI application or module project">
+            <add-to-group group-id="NewGroup" anchor="last"/>
+        </action>
+        <action id="HuxerUI.InstallSdk"
+                class="org.huxerui.clion.sdk.InstallSdkAction"
+                text="Install HuxerUI SDK..."
+                description="Download and install the latest HuxerUI SDK from GitHub Releases"/>
+        <group id="HuxerUI.Tools" text="HuxerUI" popup="true">
+            <reference ref="HuxerUI.InstallSdk"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </group>
+        <group id="HuxerUI.Build" class="org.huxerui.clion.build.HuxerUIBuildActionGroup"
+                text="HuxerUI" popup="true">
+            <add-to-group group-id="BuildMenu" anchor="last"/>
+        </group>
+        <action id="HuxerUI.DeviceSelector"
+                class="org.huxerui.clion.run.DeviceSelectorAction"
+                text="HuxerUI Device"
+                description="Select the HuxerUI deployment device">
+            <add-to-group group-id="MainToolbarCenter" anchor="before" relative-to-action="RunConfiguration"/>
+        </action>
+    </actions>
+</idea-plugin>
