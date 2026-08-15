@@ -20,4 +20,10 @@ final class DeviceOutputParserTest {
                 DeviceOutputParser.Parse("android", output)
         );
     }
+
+    @Test
+    void displaysApplePlatformNamesWithOfficialCapitalization() {
+        assertEquals("iOS — iPhone", new HuxerUIDevice("ios", "iphone", "iPhone", "ready").DisplayName());
+        assertEquals("macOS — This Mac", new HuxerUIDevice("macos", "local", "This Mac", "ready").DisplayName());
+    }
 }
