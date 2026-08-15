@@ -203,18 +203,25 @@ public abstract class HuxerUIDirectoryProjectGenerator
 
         List<CMakeSettings.Profile> configured = new ArrayList<>(2);
         for (CMakeProfilePlan plan : PlanCMakeProfiles(platforms, host_platform, emscripten_toolchain)) {
-            String existing_options = base.getGenerationOptions().strip();
-            String generation_options = plan.generation_options().isEmpty()
-                    ? existing_options
-                    : existing_options.isEmpty()
-                            ? plan.generation_options()
-                            : existing_options + " " + plan.generation_options();
             configured.add(base
                     .withName(plan.name())
-                    .withGenerationOptions(generation_options)
+                    .withGenerationOptions(MergeGenerationOptions(
+                            base.getGenerationOptions(), plan.generation_options()))
                     .withEnabled(plan.enabled()));
         }
         return List.copyOf(configured);
+    }
+
+    static String MergeGenerationOptions(String existing, String additional) {
+        String normalized_existing = existing == null ? "" : existing.strip();
+        String normalized_additional = additional == null ? "" : additional.strip();
+        if (normalized_existing.isEmpty()) {
+            return normalized_additional;
+        }
+        if (normalized_additional.isEmpty()) {
+            return normalized_existing;
+        }
+        return normalized_existing + " " + normalized_additional;
     }
 
     static List<CMakeProfilePlan> PlanCMakeProfiles(

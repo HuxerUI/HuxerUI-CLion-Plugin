@@ -118,6 +118,16 @@ final class HuxerUIDirectoryProjectGeneratorTest {
         assertTrue(profiles.get(0).enabled());
     }
 
+    @Test
+    void defaultProfilesMayHaveNullGenerationOptions() {
+        assertEquals("-DCMAKE_TOOLCHAIN_FILE=/emscripten.cmake",
+                HuxerUIDirectoryProjectGenerator.MergeGenerationOptions(
+                        null, "-DCMAKE_TOOLCHAIN_FILE=/emscripten.cmake"));
+        assertEquals("-DKEEP=ON -DWEB=ON",
+                HuxerUIDirectoryProjectGenerator.MergeGenerationOptions(" -DKEEP=ON ", " -DWEB=ON "));
+        assertEquals("", HuxerUIDirectoryProjectGenerator.MergeGenerationOptions(null, null));
+    }
+
     private static Path CreateEmscriptenToolchain(Path temporary) throws Exception {
         Path toolchain = temporary.resolve("cmake/Modules/Platform/Emscripten.cmake");
         Files.createDirectories(toolchain.getParent());
