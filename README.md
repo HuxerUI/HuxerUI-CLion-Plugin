@@ -17,6 +17,8 @@ cross-platform build actions to CLion.
   locale or image variants are presented by CLion as navigation targets.
 - Select a ready Android device, an iOS Simulator or physical device, the current Windows, macOS, or Linux computer,
   or Chrome before Run.
+- Make Chrome the selected HuxerUI run target for new and existing Web-only projects so CLion invokes
+  `huxerui run web` instead of trying to execute the generated `.mjs` file as a native program.
 - Build Debug or Release artifacts for every platform enabled by the project from the Build | HuxerUI menu.
 
 The application surface follows the current CLI exactly. Its platform registry contains Android, iOS, Windows,

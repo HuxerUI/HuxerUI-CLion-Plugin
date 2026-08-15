@@ -5,6 +5,7 @@ import com.intellij.execution.process.CapturingProcessHandler;
 import com.intellij.execution.process.ProcessOutput;
 import com.intellij.facet.ui.ValidationResult;
 import com.intellij.ide.util.projectWizard.SettingsStep;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.progress.ProcessCanceledException;
@@ -27,6 +28,8 @@ import kotlin.coroutines.EmptyCoroutineContext;
 import kotlinx.coroutines.BuildersKt;
 import kotlinx.coroutines.CoroutineStart;
 import org.huxerui.clion.PlatformNames;
+import org.huxerui.clion.run.DeviceSelectorAction;
+import org.huxerui.clion.run.HuxerUIDevice;
 import org.huxerui.clion.settings.HuxerUISettings;
 import org.jetbrains.annotations.NotNull;
 
@@ -171,6 +174,7 @@ public abstract class HuxerUIDirectoryProjectGenerator
                 root.refresh(false, true);
             }
             ConfigureCMake(project, destination, settings.platforms());
+            ConfigureDefaultRunTarget(project, settings.platforms());
         } catch (ProcessCanceledException error) {
             throw error;
         } catch (Exception error) {
@@ -222,6 +226,31 @@ public abstract class HuxerUIDirectoryProjectGenerator
             return normalized_existing;
         }
         return normalized_existing + " " + normalized_additional;
+    }
+
+    static HuxerUIDevice DefaultRunDevice(List<String> platforms) {
+        return platforms.size() == 1 && platforms.contains("web")
+                ? new HuxerUIDevice("web", "chrome", "Chrome", "ready")
+                : null;
+    }
+
+    private static void ConfigureDefaultRunTarget(Project project, List<String> platforms) {
+        HuxerUIDevice device = DefaultRunDevice(platforms);
+        if (device == null) {
+            return;
+        }
+        Runnable configure = () -> {
+            if (project.isDisposed()) {
+                return;
+            }
+            HuxerUIProjectService.Get(project).SelectDevice(device);
+            DeviceSelectorAction.SelectRunConfiguration(project, device);
+        };
+        if (ApplicationManager.getApplication().isDispatchThread()) {
+            configure.run();
+        } else {
+            ApplicationManager.getApplication().invokeAndWait(configure);
+        }
     }
 
     static List<CMakeProfilePlan> PlanCMakeProfiles(

@@ -110,19 +110,21 @@ public final class DeviceSelectorAction extends ComboBoxAction implements DumbAw
         }
     }
 
-    private static void SelectRunConfiguration(Project project, HuxerUIDevice device) {
+    public static void SelectRunConfiguration(Project project, HuxerUIDevice device) {
         RunManager manager = RunManager.getInstance(project);
+        String configuration_name = "HuxerUI " + org.huxerui.clion.PlatformNames.DisplayName(device.platform());
         RunnerAndConfigurationSettings settings = manager.getAllSettings().stream()
                 .filter(item -> item.getConfiguration() instanceof HuxerUIRunConfiguration)
                 .findFirst()
                 .orElseGet(() -> {
                     RunnerAndConfigurationSettings created = manager.createConfiguration(
-                            "HuxerUI",
+                            configuration_name,
                             HuxerUIConfigurationType.class
                     );
                     manager.addConfiguration(created);
                     return created;
                 });
+        settings.setName(configuration_name);
         HuxerUIRunConfiguration configuration = (HuxerUIRunConfiguration) settings.getConfiguration();
         configuration.SetPlatform(device.platform());
         configuration.SetDeviceId(device.id());

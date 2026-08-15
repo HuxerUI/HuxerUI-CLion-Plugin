@@ -9,6 +9,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.util.xmlb.XmlSerializerUtil;
 import org.huxerui.clion.cli.HuxerUICommand;
 import org.huxerui.clion.run.DeviceOutputParser;
+import org.huxerui.clion.run.DeviceSelectorAction;
 import org.huxerui.clion.run.HuxerUIDevice;
 import org.huxerui.clion.settings.HuxerUISettings;
 import org.jetbrains.annotations.NotNull;
@@ -152,6 +153,15 @@ public final class HuxerUIProjectService implements PersistentStateComponent<Hux
             state_.platform = "";
             state_.device_id = "";
             state_.device_name = "";
+            HuxerUIDevice default_device = HuxerUIDirectoryProjectGenerator.DefaultRunDevice(enabled);
+            if (default_device != null) {
+                SelectDevice(default_device);
+                ApplicationManager.getApplication().invokeLater(() -> {
+                    if (!project_.isDisposed()) {
+                        DeviceSelectorAction.SelectRunConfiguration(project_, default_device);
+                    }
+                });
+            }
         }
         if (failure != null) {
             throw failure;
