@@ -15,6 +15,7 @@ import com.intellij.execution.filters.TextConsoleBuilderFactory;
 import com.intellij.openapi.options.SettingsEditor;
 import com.intellij.openapi.project.Project;
 import org.huxerui.clion.cli.HuxerUICommand;
+import org.huxerui.clion.project.HuxerUIProjectService;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -137,7 +138,11 @@ public final class HuxerUIRunConfiguration extends RunConfigurationBase<RunConfi
                 if (build.getExitCode() != 0) {
                     throw new ExecutionException((build.getStderr() + build.getStdout()).strip());
                 }
-                Path build_root = root.resolve(".huxerui/build/web").resolve(configuration_.profile_);
+                Path application_root = HuxerUIProjectService.FindApplicationRoot(root);
+                if (application_root == null) {
+                    throw new ExecutionException("HuxerUI application root is not configured");
+                }
+                Path build_root = application_root.resolve(".huxerui/build/web").resolve(configuration_.profile_);
                 Path html;
                 try (var files = Files.walk(build_root)) {
                     html = files.filter(path ->

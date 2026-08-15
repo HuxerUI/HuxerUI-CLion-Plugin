@@ -5,10 +5,13 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.clion</depends>
+    <depends>com.intellij.cmake</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <applicationService serviceImplementation="org.huxerui.clion.settings.HuxerUISettings"/>
         <projectService serviceImplementation="org.huxerui.clion.project.HuxerUIProjectService"/>
+        <directoryProjectGenerator implementation="org.huxerui.clion.project.HuxerUIAppProjectGenerator"/>
+        <directoryProjectGenerator implementation="org.huxerui.clion.project.HuxerUIModuleProjectGenerator"/>
         <applicationConfigurable
                 id="org.huxerui.clion.settings"
                 parentId="tools"
@@ -20,12 +23,6 @@
     </extensions>
 
     <actions>
-        <action id="HuxerUI.NewProject"
-                class="org.huxerui.clion.project.NewHuxerUIProjectAction"
-                text="HuxerUI Project..."
-                description="Create a HuxerUI application or module project">
-            <add-to-group group-id="NewGroup" anchor="last"/>
-        </action>
         <action id="HuxerUI.InstallSdk"
                 class="org.huxerui.clion.sdk.InstallSdkAction"
                 text="Install HuxerUI SDK..."

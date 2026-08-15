@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service(Service.Level.PROJECT)
 @State(name = "HuxerUIProject", storages = @Storage("huxerui.xml"))
 public final class HuxerUIProjectService implements PersistentStateComponent<HuxerUIProjectService.StateData> {
-    public static final List<String> all_platforms = List.of("android", "ios", "windows", "macos", "web");
+    public static final List<String> all_platforms = List.of("android", "ios", "windows", "macos", "linux", "web");
 
     public static final class StateData {
         public String platform = "";
@@ -57,22 +57,14 @@ public final class HuxerUIProjectService implements PersistentStateComponent<Hux
 
     public boolean IsProject() {
         String base_path = project_.getBasePath();
-        if (base_path == null) {
-            return false;
-        }
-        Path root = Path.of(base_path);
-        if (!Files.isRegularFile(root.resolve("CMakeLists.txt"))) {
-            return false;
-        }
-        return Files.isRegularFile(root.resolve("src/main.cpp"))
-                && Files.isDirectory(root.resolve("platform"));
+        return base_path != null && FindApplicationRoot(Path.of(base_path)) != null;
     }
 
     public List<String> EnabledPlatforms() {
-        if (!IsProject()) {
+        Path root = FindApplicationRoot(HuxerUICommand.ProjectRoot(project_));
+        if (root == null) {
             return List.of();
         }
-        Path root = HuxerUICommand.ProjectRoot(project_);
         Path platforms = root.resolve("platform");
         List<String> result = new ArrayList<>();
         for (String platform : all_platforms) {
@@ -81,6 +73,17 @@ public final class HuxerUIProjectService implements PersistentStateComponent<Hux
             }
         }
         return result;
+    }
+
+    public static @Nullable Path FindApplicationRoot(Path project_root) {
+        for (Path candidate : List.of(project_root, project_root.resolve("examples/preview"))) {
+            if (Files.isRegularFile(candidate.resolve("CMakeLists.txt"))
+                    && Files.isRegularFile(candidate.resolve("src/app.cpp"))
+                    && Files.isDirectory(candidate.resolve("platform"))) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     public List<HuxerUIDevice> Devices() {

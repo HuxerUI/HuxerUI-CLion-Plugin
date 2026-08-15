@@ -22,6 +22,7 @@ dependencies {
         } else {
             local(clionPath.get())
         }
+        bundledPlugin("com.intellij.cmake")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
         pluginVerifier()
     }
