@@ -24,6 +24,11 @@ public final class HuxerUIConfigurationType extends ConfigurationTypeBase {
             }
 
             @Override
+            public boolean isApplicable(@NotNull Project project) {
+                return org.huxerui.clion.project.HuxerUIProjectService.Get(project).IsProject();
+            }
+
+            @Override
             public @NotNull String getId() {
                 return HuxerUIConfigurationType.id;
             }

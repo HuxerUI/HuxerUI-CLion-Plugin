@@ -23,4 +23,20 @@ final class HuxerUIRunConfigurationTest {
                 List.of("run", "linux", "--profile", "debug"),
                 HuxerUIRunConfiguration.BuildRunArguments("linux", "local", "debug"));
     }
+
+    @Test
+    void givesEveryRunTargetAnIndependentName() {
+        assertEquals(
+                "HuxerUI Linux",
+                DeviceSelectorAction.ConfigurationName(new HuxerUIDevice(
+                        "linux", "local", "This Computer", "ready")));
+        assertEquals(
+                "HuxerUI Web",
+                DeviceSelectorAction.ConfigurationName(new HuxerUIDevice(
+                        "web", "chrome", "Chrome", "ready")));
+        assertEquals(
+                "HuxerUI Android — Pixel 9",
+                DeviceSelectorAction.ConfigurationName(new HuxerUIDevice(
+                        "android", "emulator-5554", "Pixel 9", "ready")));
+    }
 }

@@ -35,10 +35,22 @@ final class HuxerUIProjectServiceTest {
         assertNull(HuxerUIProjectService.FindApplicationRoot(root));
     }
 
+    @Test
+    void rejectsFrameworkOrUnrelatedLookalikeLayouts(@TempDir Path root) throws Exception {
+        Files.createDirectories(root.resolve("src"));
+        Files.createDirectories(root.resolve("platform/linux"));
+        Files.createDirectories(root.resolve("resources"));
+        Files.createFile(root.resolve("CMakeLists.txt"));
+        Files.createFile(root.resolve("src/app.cpp"));
+
+        assertNull(HuxerUIProjectService.FindApplicationRoot(root));
+    }
+
     private static void CreateApplication(Path root) throws Exception {
         Files.createDirectories(root.resolve("src"));
         Files.createDirectories(root.resolve("platform/linux"));
         Files.createFile(root.resolve("CMakeLists.txt"));
         Files.createFile(root.resolve("src/app.cpp"));
+        Files.createFile(root.resolve("platform/linux/huxerui.cmake"));
     }
 }

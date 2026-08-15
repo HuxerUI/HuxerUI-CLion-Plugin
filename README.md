@@ -19,6 +19,10 @@ cross-platform build actions to CLion.
   or Chrome before Run.
 - Make Chrome the selected HuxerUI run target for new and existing Web-only projects so CLion invokes
   `huxerui run web` instead of trying to execute the generated `.mjs` file as a native program.
+- Keep independent Run configurations for every ready target in a multi-platform project, including the current
+  desktop host, Web, and each connected Android or iOS device.
+- Hide project actions and the HuxerUI Run configuration factory outside standard HuxerUI application layouts, and
+  leave resource navigation inactive in unrelated projects and in the HuxerUI framework source tree itself.
 - Build Debug or Release artifacts for every platform enabled by the project from the Build | HuxerUI menu.
 
 The application surface follows the current CLI exactly. Its platform registry contains Android, iOS, Windows,

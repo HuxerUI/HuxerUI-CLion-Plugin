@@ -8,7 +8,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,12 +32,11 @@ final class HuxerUINewProjectWizardTest {
     }
 
     @Test
-    void selectsChromeForWebOnlyProjects() {
-        var device = HuxerUIDirectoryProjectGenerator.DefaultRunDevice(List.of("web"));
+    void createsImmediateRunTargetsForEveryLocallyRunnablePlatform() {
+        var devices = HuxerUIProjectService.ImmediateRunDevices(List.of("linux", "web", "android"), "linux");
 
-        assertNotNull(device);
-        assertEquals("web", device.platform());
-        assertEquals("chrome", device.id());
-        assertNull(HuxerUIDirectoryProjectGenerator.DefaultRunDevice(List.of("linux", "web")));
+        assertEquals(2, devices.size());
+        assertEquals("linux", devices.get(0).platform());
+        assertEquals("web", devices.get(1).platform());
     }
 }

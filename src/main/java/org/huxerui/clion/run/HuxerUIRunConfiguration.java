@@ -41,6 +41,10 @@ public final class HuxerUIRunConfiguration extends RunConfigurationBase<RunConfi
 
     @Override
     public void checkConfiguration() throws com.intellij.execution.configurations.RuntimeConfigurationException {
+        if (!org.huxerui.clion.project.HuxerUIProjectService.Get(getProject()).IsProject()) {
+            throw new com.intellij.execution.configurations.RuntimeConfigurationError(
+                    "The current project is not a HuxerUI application");
+        }
         if (platform_.isBlank()) {
             throw new com.intellij.execution.configurations.RuntimeConfigurationError("Select a HuxerUI device");
         }

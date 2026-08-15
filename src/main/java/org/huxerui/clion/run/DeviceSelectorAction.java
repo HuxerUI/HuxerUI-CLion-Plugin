@@ -12,10 +12,12 @@ import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.actionSystem.ex.ComboBoxAction;
 import org.huxerui.clion.HuxerUINotifications;
+import org.huxerui.clion.PlatformNames;
 import org.huxerui.clion.project.HuxerUIProjectService;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.JComponent;
+import java.util.List;
 
 public final class DeviceSelectorAction extends ComboBoxAction implements DumbAware {
     @Override
@@ -112,23 +114,67 @@ public final class DeviceSelectorAction extends ComboBoxAction implements DumbAw
 
     public static void SelectRunConfiguration(Project project, HuxerUIDevice device) {
         RunManager manager = RunManager.getInstance(project);
-        String configuration_name = "HuxerUI " + org.huxerui.clion.PlatformNames.DisplayName(device.platform());
+        RunnerAndConfigurationSettings settings = EnsureRunConfiguration(manager, project, device);
+        HuxerUIProjectService.Get(project).SelectDevice(device);
+        manager.setSelectedConfiguration(settings);
+    }
+
+    public static void SyncRunConfigurations(Project project, List<HuxerUIDevice> devices) {
+        RunManager manager = RunManager.getInstance(project);
+        HuxerUIProjectService service = HuxerUIProjectService.Get(project);
+        HuxerUIDevice selected = service.SelectedDevice();
+        RunnerAndConfigurationSettings selected_settings = null;
+        List<HuxerUIDevice> ready = devices.stream().filter(HuxerUIDevice::IsReady).toList();
+        for (HuxerUIDevice device : ready) {
+            RunnerAndConfigurationSettings settings = EnsureRunConfiguration(manager, project, device);
+            if (SameTarget(device, selected)) {
+                selected_settings = settings;
+            }
+        }
+        if (selected_settings == null && ready.size() == 1) {
+            HuxerUIDevice device = ready.get(0);
+            service.SelectDevice(device);
+            selected_settings = EnsureRunConfiguration(manager, project, device);
+        }
+        if (selected_settings != null) {
+            manager.setSelectedConfiguration(selected_settings);
+        }
+    }
+
+    static String ConfigurationName(HuxerUIDevice device) {
+        String platform = PlatformNames.DisplayName(device.platform());
+        return device.platform().equals("android") || device.platform().equals("ios")
+                ? "HuxerUI " + platform + " — " + (device.name().isBlank() ? device.id() : device.name())
+                : "HuxerUI " + platform;
+    }
+
+    private static RunnerAndConfigurationSettings EnsureRunConfiguration(
+            RunManager manager,
+            Project project,
+            HuxerUIDevice device
+    ) {
         RunnerAndConfigurationSettings settings = manager.getAllSettings().stream()
-                .filter(item -> item.getConfiguration() instanceof HuxerUIRunConfiguration)
+                .filter(item -> item.getConfiguration() instanceof HuxerUIRunConfiguration configuration
+                        && configuration.GetPlatform().equals(device.platform())
+                        && configuration.GetDeviceId().equals(device.id()))
                 .findFirst()
                 .orElseGet(() -> {
                     RunnerAndConfigurationSettings created = manager.createConfiguration(
-                            configuration_name,
+                            ConfigurationName(device),
                             HuxerUIConfigurationType.class
                     );
                     manager.addConfiguration(created);
                     return created;
                 });
-        settings.setName(configuration_name);
+        settings.setName(ConfigurationName(device));
         HuxerUIRunConfiguration configuration = (HuxerUIRunConfiguration) settings.getConfiguration();
         configuration.SetPlatform(device.platform());
         configuration.SetDeviceId(device.id());
         configuration.SetProfile(HuxerUIProjectService.Get(project).Profile());
-        manager.setSelectedConfiguration(settings);
+        return settings;
+    }
+
+    private static boolean SameTarget(HuxerUIDevice left, HuxerUIDevice right) {
+        return left.platform().equals(right.platform()) && left.id().equals(right.id());
     }
 }

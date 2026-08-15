@@ -11,6 +11,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
+import org.huxerui.clion.project.HuxerUIProjectService;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -40,6 +41,9 @@ public final class HuxerUIResourceGotoHandler implements GotoDeclarationHandler 
         }
 
         Project project = source_element.getProject();
+        if (!HuxerUIProjectService.Get(project).IsProject()) {
+            return null;
+        }
         List<PsiElement> targets = new ArrayList<>();
         String target_kind = reference.kind();
         String target_identifier = reference.identifier();

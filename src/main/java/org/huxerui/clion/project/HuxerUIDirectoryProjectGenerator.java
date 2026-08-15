@@ -174,7 +174,7 @@ public abstract class HuxerUIDirectoryProjectGenerator
                 root.refresh(false, true);
             }
             ConfigureCMake(project, destination, settings.platforms());
-            ConfigureDefaultRunTarget(project, settings.platforms());
+            ConfigureInitialRunTargets(project, settings.platforms());
         } catch (ProcessCanceledException error) {
             throw error;
         } catch (Exception error) {
@@ -228,23 +228,17 @@ public abstract class HuxerUIDirectoryProjectGenerator
         return normalized_existing + " " + normalized_additional;
     }
 
-    static HuxerUIDevice DefaultRunDevice(List<String> platforms) {
-        return platforms.size() == 1 && platforms.contains("web")
-                ? new HuxerUIDevice("web", "chrome", "Chrome", "ready")
-                : null;
-    }
-
-    private static void ConfigureDefaultRunTarget(Project project, List<String> platforms) {
-        HuxerUIDevice device = DefaultRunDevice(platforms);
-        if (device == null) {
+    private static void ConfigureInitialRunTargets(Project project, List<String> platforms) {
+        List<HuxerUIDevice> devices = HuxerUIProjectService.ImmediateRunDevices(
+                platforms, HuxerUIProjectService.HostPlatformId());
+        if (devices.isEmpty()) {
             return;
         }
         Runnable configure = () -> {
             if (project.isDisposed()) {
                 return;
             }
-            HuxerUIProjectService.Get(project).SelectDevice(device);
-            DeviceSelectorAction.SelectRunConfiguration(project, device);
+            DeviceSelectorAction.SyncRunConfigurations(project, devices);
         };
         if (ApplicationManager.getApplication().isDispatchThread()) {
             configure.run();

@@ -80,11 +80,26 @@ public final class HuxerUIProjectService implements PersistentStateComponent<Hux
         for (Path candidate : List.of(project_root, project_root.resolve("examples/preview"))) {
             if (Files.isRegularFile(candidate.resolve("CMakeLists.txt"))
                     && Files.isRegularFile(candidate.resolve("src/app.cpp"))
-                    && Files.isDirectory(candidate.resolve("platform"))) {
+                    && HasGeneratedPlatformShell(candidate.resolve("platform"))) {
                 return candidate;
             }
         }
         return null;
+    }
+
+    private static boolean HasGeneratedPlatformShell(Path platforms) {
+        for (String platform : all_platforms) {
+            Path directory = platforms.resolve(platform);
+            if (Files.isRegularFile(directory.resolve("huxerui.cmake"))) {
+                return true;
+            }
+            if (platform.equals("ios")
+                    && Files.isRegularFile(directory.resolve("App/main.mm"))
+                    && Files.isRegularFile(directory.resolve("Config/Base.xcconfig"))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public List<HuxerUIDevice> Devices() {
@@ -153,16 +168,12 @@ public final class HuxerUIProjectService implements PersistentStateComponent<Hux
             state_.platform = "";
             state_.device_id = "";
             state_.device_name = "";
-            HuxerUIDevice default_device = HuxerUIDirectoryProjectGenerator.DefaultRunDevice(enabled);
-            if (default_device != null) {
-                SelectDevice(default_device);
-                ApplicationManager.getApplication().invokeLater(() -> {
-                    if (!project_.isDisposed()) {
-                        DeviceSelectorAction.SelectRunConfiguration(project_, default_device);
-                    }
-                });
-            }
         }
+        ApplicationManager.getApplication().invokeLater(() -> {
+            if (!project_.isDisposed() && IsProject()) {
+                DeviceSelectorAction.SyncRunConfigurations(project_, devices_);
+            }
+        });
         if (failure != null) {
             throw failure;
         }
@@ -190,5 +201,16 @@ public final class HuxerUIProjectService implements PersistentStateComponent<Hux
     public static String HostPlatformId() {
         String os = System.getProperty("os.name", "").toLowerCase();
         return os.contains("win") ? "windows" : os.contains("mac") ? "macos" : "linux";
+    }
+
+    public static List<HuxerUIDevice> ImmediateRunDevices(List<String> platforms, String host_platform) {
+        List<HuxerUIDevice> devices = new ArrayList<>(2);
+        if (platforms.contains(host_platform)) {
+            devices.add(new HuxerUIDevice(host_platform, "local", "This Computer", "ready"));
+        }
+        if (platforms.contains("web")) {
+            devices.add(new HuxerUIDevice("web", "chrome", "Chrome", "ready"));
+        }
+        return List.copyOf(devices);
     }
 }
