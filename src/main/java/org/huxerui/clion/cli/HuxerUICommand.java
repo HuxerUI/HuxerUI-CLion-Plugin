@@ -17,7 +17,7 @@ public final class HuxerUICommand {
         Path sdk_home = HuxerUISettings.getInstance().RequireSdkHome();
         GeneralCommandLine command = new GeneralCommandLine(HuxerUISettings.getInstance().RequireCli().toString());
         command.withWorkDirectory(working_directory.toFile());
-        command.withEnvironment("HUXERUI_SDK_ROOT", sdk_home.toString());
+        command.withEnvironment("HUXERUI_HOME", sdk_home.toString());
         command.addParameters(arguments);
         command.withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE);
         return command;

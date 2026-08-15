@@ -86,7 +86,7 @@ public final class SdkInstaller {
             MakeCliExecutable(extracted_home);
             Move(extracted_home, destination);
             if (!IsUsableSdk(destination)) {
-                throw new IOException("Installed archive does not contain the standard HUXERUI_SDK_ROOT layout");
+                throw new IOException("Installed archive does not contain the standard HUXERUI_HOME layout");
             }
             return destination;
         } finally {
@@ -200,7 +200,7 @@ public final class SdkInstaller {
                 return directories.getFirst();
             }
         }
-        throw new IOException("SDK archive does not contain a standard HUXERUI_SDK_ROOT directory");
+        throw new IOException("SDK archive does not contain a standard HUXERUI_HOME directory");
     }
 
     private static boolean IsUsableSdk(Path home) {

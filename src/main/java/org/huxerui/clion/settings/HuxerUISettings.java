@@ -50,7 +50,7 @@ public final class HuxerUISettings implements PersistentStateComponent<HuxerUISe
         }
         Path home = Path.of(state_.sdk_home).toAbsolutePath().normalize();
         if (!SdkLayout.IsValid(home)) {
-            throw new IllegalStateException("Configured HUXERUI_SDK_ROOT is not a valid SDK: " + home);
+            throw new IllegalStateException("Configured HUXERUI_HOME is not a valid SDK: " + home);
         }
         return home;
     }
@@ -59,7 +59,7 @@ public final class HuxerUISettings implements PersistentStateComponent<HuxerUISe
         Path home = RequireSdkHome();
         Path executable = SdkLayout.FindCli(home);
         if (executable == null) {
-            throw new IllegalStateException("Configured HUXERUI_SDK_ROOT has no built huxerui CLI: " + home);
+            throw new IllegalStateException("Configured HUXERUI_HOME has no built huxerui CLI: " + home);
         }
         return executable;
     }

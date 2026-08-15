@@ -40,7 +40,7 @@ public final class InstallSdkAction extends AnAction {
                 HuxerUINotifications.info(
                         event.getProject(),
                         "HuxerUI SDK installed",
-                        "HUXERUI_SDK_ROOT is now " + installed_
+                        "HUXERUI_HOME is now " + installed_
                 );
             }
         }.queue();
