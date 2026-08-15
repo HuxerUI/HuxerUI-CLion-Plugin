@@ -1,7 +1,7 @@
 .gradle/
 .intellijPlatform/
 .idea/
-build/
+/build/
 out/
 
 *.iml
