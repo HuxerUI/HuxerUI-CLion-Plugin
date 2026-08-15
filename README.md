@@ -8,6 +8,8 @@ cross-platform build actions to CLion.
 - Create an application or compile-time module through the current HuxerUI CLI from CLion's New Project wizard,
   including the Welcome screen, a dedicated HuxerUI category, and separate HuxerUI App and HuxerUI Module entries.
 - Set an optional reverse-domain Application ID that the CLI projects to Android package names and Apple bundle IDs.
+- Configure CLion only for selected platforms: the current desktop host receives a native CMake profile, Web receives
+  an Emscripten profile, and Gradle- or Xcode-owned mobile projects do not trigger an unrelated host configuration.
 - Download the latest host SDK from the `HuxerUI/HuxerUI` GitHub Release, verify its GitHub SHA-256 digest, and
   install it below `~/.huxerui/sdk`.
 - Navigate `strings::name`, `images::name`, and `raw::name` references to their source resources instead of the
@@ -37,6 +39,7 @@ while the plugin reports generation phases and CLI output in the standard cancel
 dialog.
 Generated applications use `src/app.cpp` plus the selected native entry points such as `platform/linux/main.cpp`.
 Generated modules include the CLI-owned `examples/preview` application and selected native module packages.
+Web project creation requires `em-config` on `PATH` so the plugin can locate Emscripten's CMake toolchain file.
 
 ## SDK release contract
 

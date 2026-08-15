@@ -5,10 +5,14 @@ import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBTextField;
 import com.jetbrains.cidr.cpp.cmake.projectWizard.generators.CLionProjectGenerator;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import javax.swing.JComponent;
 import java.awt.Component;
 import java.awt.Container;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -63,6 +67,61 @@ final class HuxerUIDirectoryProjectGeneratorTest {
         linux.doClick();
         assertFalse(peer.getSettings().platforms().contains("linux"));
         assertNull(peer.validate());
+    }
+
+    @Test
+    void webOnlyProjectsUseAnEmscriptenProfile(@TempDir Path temporary) throws Exception {
+        Path toolchain = CreateEmscriptenToolchain(temporary);
+
+        List<HuxerUIDirectoryProjectGenerator.CMakeProfilePlan> profiles =
+                HuxerUIDirectoryProjectGenerator.PlanCMakeProfiles(List.of("web"), "linux", toolchain);
+
+        assertEquals(1, profiles.size());
+        HuxerUIDirectoryProjectGenerator.CMakeProfilePlan web = profiles.get(0);
+        assertTrue(web.enabled());
+        assertEquals("HuxerUI Web Debug", web.name());
+        assertEquals("-DCMAKE_TOOLCHAIN_FILE=" + toolchain, web.generation_options());
+    }
+
+    @Test
+    void hostAndWebProjectsReceiveSeparateProfiles(@TempDir Path temporary) throws Exception {
+        Path toolchain = CreateEmscriptenToolchain(temporary);
+
+        List<HuxerUIDirectoryProjectGenerator.CMakeProfilePlan> profiles =
+                HuxerUIDirectoryProjectGenerator.PlanCMakeProfiles(
+                        List.of("linux", "web"), "linux", toolchain);
+
+        assertEquals(2, profiles.size());
+        assertEquals("HuxerUI Linux Debug", profiles.get(0).name());
+        assertTrue(profiles.get(0).generation_options().isEmpty());
+        assertEquals("HuxerUI Web Debug", profiles.get(1).name());
+        assertTrue(profiles.get(1).generation_options().contains("CMAKE_TOOLCHAIN_FILE"));
+    }
+
+    @Test
+    void nonHostNativeProjectsDoNotEnableTheHostCMakeProfile() {
+        List<HuxerUIDirectoryProjectGenerator.CMakeProfilePlan> profiles =
+                HuxerUIDirectoryProjectGenerator.PlanCMakeProfiles(
+                        List.of("android", "ios", "windows"), "linux", null);
+
+        assertEquals(1, profiles.size());
+        assertEquals("HuxerUI Native Builds", profiles.get(0).name());
+        assertFalse(profiles.get(0).enabled());
+    }
+
+    @Test
+    void hostProfilesUseCanonicalAppleCapitalization() {
+        List<HuxerUIDirectoryProjectGenerator.CMakeProfilePlan> profiles =
+                HuxerUIDirectoryProjectGenerator.PlanCMakeProfiles(List.of("macos"), "macos", null);
+
+        assertEquals("HuxerUI macOS Debug", profiles.get(0).name());
+        assertTrue(profiles.get(0).enabled());
+    }
+
+    private static Path CreateEmscriptenToolchain(Path temporary) throws Exception {
+        Path toolchain = temporary.resolve("cmake/Modules/Platform/Emscripten.cmake");
+        Files.createDirectories(toolchain.getParent());
+        return Files.createFile(toolchain);
     }
 
     private static JBCheckBox FindCheckBox(Container container, String name) {

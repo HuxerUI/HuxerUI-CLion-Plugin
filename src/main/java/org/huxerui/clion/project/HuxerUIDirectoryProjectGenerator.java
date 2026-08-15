@@ -1,5 +1,8 @@
 package org.huxerui.clion.project;
 
+import com.intellij.execution.configurations.GeneralCommandLine;
+import com.intellij.execution.process.CapturingProcessHandler;
+import com.intellij.execution.process.ProcessOutput;
 import com.intellij.facet.ui.ValidationResult;
 import com.intellij.ide.util.projectWizard.SettingsStep;
 import com.intellij.openapi.diagnostic.Logger;
@@ -36,6 +39,7 @@ import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -62,6 +66,8 @@ public abstract class HuxerUIDirectoryProjectGenerator
             project_id = project_id == null ? "" : project_id.trim();
         }
     }
+
+    record CMakeProfilePlan(String name, boolean enabled, String generation_options) {}
 
     @Override
     public final @NotNull String getGroupName() {
@@ -164,7 +170,7 @@ public abstract class HuxerUIDirectoryProjectGenerator
             if (root != null) {
                 root.refresh(false, true);
             }
-            ConfigureCMake(project, destination);
+            ConfigureCMake(project, destination, settings.platforms());
         } catch (ProcessCanceledException error) {
             throw error;
         } catch (Exception error) {
@@ -172,22 +178,101 @@ public abstract class HuxerUIDirectoryProjectGenerator
         }
     }
 
-    static void ConfigureCMake(Project project, Path destination) {
+    static void ConfigureCMake(Project project, Path destination, List<String> platforms) throws Exception {
         String sdk_home = HuxerUISettings.getInstance().RequireSdkHome().toString();
         CMakeSettings settings = CMakeSettings.getInstance(project);
-        List<CMakeSettings.Profile> profiles = new ArrayList<>(settings.getProfiles());
-        if (profiles.isEmpty()) {
-            profiles.add(new CMakeSettings.Profile());
-        }
-        List<CMakeSettings.Profile> configured = new ArrayList<>(profiles.size());
-        for (CMakeSettings.Profile profile : profiles) {
-            Map<String, String> environment = new HashMap<>(profile.getAdditionalEnvironment());
-            environment.remove("HUXERUI_SDK_ROOT");
-            environment.put("HUXERUI_HOME", sdk_home);
-            configured.add(profile.withEnvironment(true, environment));
-        }
-        settings.setProfiles(configured);
+        Path emscripten_toolchain = platforms.contains("web") ? FindEmscriptenToolchain() : null;
+        settings.setProfiles(CreateCMakeProfiles(
+                settings.getProfiles(), platforms, sdk_home, HuxerUIProjectService.HostPlatformId(),
+                emscripten_toolchain));
         LinkCMakeProject(project, destination);
+    }
+
+    private static List<CMakeSettings.Profile> CreateCMakeProfiles(List<CMakeSettings.Profile> existing,
+            List<String> platforms, String sdk_home, String host_platform, Path emscripten_toolchain) {
+        CMakeSettings.Profile template = existing.isEmpty()
+                ? new CMakeSettings.Profile()
+                : existing.stream().filter(CMakeSettings.Profile::getEnabled).findFirst().orElse(existing.get(0));
+        Map<String, String> environment = new HashMap<>(template.getAdditionalEnvironment());
+        environment.remove("HUXERUI_SDK_ROOT");
+        environment.put("HUXERUI_HOME", sdk_home);
+        CMakeSettings.Profile base = template
+                .withBuildType("Debug")
+                .withEnvironment(true, environment)
+                .withEnabled(true);
+
+        List<CMakeSettings.Profile> configured = new ArrayList<>(2);
+        for (CMakeProfilePlan plan : PlanCMakeProfiles(platforms, host_platform, emscripten_toolchain)) {
+            String existing_options = base.getGenerationOptions().strip();
+            String generation_options = plan.generation_options().isEmpty()
+                    ? existing_options
+                    : existing_options.isEmpty()
+                            ? plan.generation_options()
+                            : existing_options + " " + plan.generation_options();
+            configured.add(base
+                    .withName(plan.name())
+                    .withGenerationOptions(generation_options)
+                    .withEnabled(plan.enabled()));
+        }
+        return List.copyOf(configured);
+    }
+
+    static List<CMakeProfilePlan> PlanCMakeProfiles(
+            List<String> platforms, String host_platform, Path emscripten_toolchain) {
+        List<CMakeProfilePlan> configured = new ArrayList<>(2);
+        if (platforms.contains(host_platform)) {
+            configured.add(new CMakeProfilePlan(
+                    ProfileName(PlatformNames.DisplayName(host_platform)), true, ""));
+        }
+        if (platforms.contains("web")) {
+            if (emscripten_toolchain == null || !Files.isRegularFile(emscripten_toolchain)) {
+                throw new IllegalStateException(
+                        "HuxerUI Web requires an Emscripten toolchain; ensure em-config is available on PATH");
+            }
+            String toolchain_option = "-DCMAKE_TOOLCHAIN_FILE="
+                    + QuoteGenerationOptionValue(emscripten_toolchain.toString());
+            configured.add(new CMakeProfilePlan(ProfileName("Web"), true, toolchain_option));
+        }
+        if (configured.isEmpty()) {
+            configured.add(new CMakeProfilePlan("HuxerUI Native Builds", false, ""));
+        }
+        return List.copyOf(configured);
+    }
+
+    private static String ProfileName(String platform) {
+        return "HuxerUI " + platform + " Debug";
+    }
+
+    private static String QuoteGenerationOptionValue(String value) {
+        if (value.chars().noneMatch(Character::isWhitespace)) {
+            return value;
+        }
+        return '"' + value.replace("\"", "\\\"") + '"';
+    }
+
+    private static Path FindEmscriptenToolchain() throws Exception {
+        GeneralCommandLine command = new GeneralCommandLine("em-config", "EMSCRIPTEN_ROOT");
+        command.withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE);
+        ProcessOutput output = new CapturingProcessHandler(command).runProcess(10_000);
+        if (output.isTimeout()) {
+            throw new IllegalStateException(
+                    "HuxerUI Web timed out while locating the Emscripten toolchain with em-config");
+        }
+        if (output.getExitCode() != 0) {
+            String message = (output.getStderr() + output.getStdout()).strip();
+            throw new IllegalStateException(message.isEmpty()
+                    ? "HuxerUI Web cannot locate the Emscripten toolchain with em-config"
+                    : "HuxerUI Web cannot locate the Emscripten toolchain: " + message);
+        }
+        String root = output.getStdout().strip();
+        if (root.isEmpty()) {
+            throw new IllegalStateException("HuxerUI Web em-config returned an empty Emscripten root");
+        }
+        Path toolchain = Path.of(root, "cmake", "Modules", "Platform", "Emscripten.cmake");
+        if (!Files.isRegularFile(toolchain)) {
+            throw new IllegalStateException("HuxerUI Web Emscripten CMake toolchain does not exist: " + toolchain);
+        }
+        return toolchain;
     }
 
     static boolean IsValidApplicationId(String project_id) {
