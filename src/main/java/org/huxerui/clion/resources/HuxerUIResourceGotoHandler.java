@@ -3,18 +3,13 @@ package org.huxerui.clion.resources;
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ProjectFileIndex;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import org.huxerui.clion.project.HuxerUIProjectService;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,7 +18,6 @@ public final class HuxerUIResourceGotoHandler implements GotoDeclarationHandler 
     private static final Pattern expression = Pattern.compile(
             "(?:[A-Za-z_][A-Za-z0-9_]*::)*(images|strings|raw)::([A-Za-z_][A-Za-z0-9_]*)"
     );
-    private static final Pattern string_entry = Pattern.compile("(?m)^\\s*([^#=\\r\\n]+?)\\s*=");
 
     @Override
     public PsiElement @Nullable [] getGotoDeclarationTargets(
@@ -44,33 +38,19 @@ public final class HuxerUIResourceGotoHandler implements GotoDeclarationHandler 
         if (!HuxerUIProjectService.Get(project).IsProject()) {
             return null;
         }
-        List<PsiElement> targets = new ArrayList<>();
-        String target_kind = reference.kind();
-        String target_identifier = reference.identifier();
-        ProjectFileIndex.getInstance(project).iterateContent(file -> {
-            String marker = "/resources/" + target_kind + "/";
-            String path = file.getPath().replace('\\', '/');
-            int resource = path.indexOf(marker);
-            if (resource < 0 || file.isDirectory()) {
-                return true;
-            }
-            String relative = path.substring(resource + marker.length());
-            if (target_kind.equals("strings")) {
-                AddStringTarget(project, file, target_identifier, targets);
-            } else {
-                String logical = target_kind.equals("images")
-                        ? ResourceNameCodec.ImageLogicalName(relative)
-                        : relative;
-                if (ResourceNameCodec.Identifier(logical).equals(target_identifier)) {
-                    PsiFile psi_file = PsiManager.getInstance(project).findFile(file);
-                    if (psi_file != null) {
-                        targets.add(psi_file);
-                    }
-                }
-            }
-            return true;
-        });
-        return targets.isEmpty() ? null : targets.toArray(PsiElement[]::new);
+        List<HuxerUIResourceIndex.Entry> matches = HuxerUIResourceIndex.Find(project, reference.kind()).stream()
+                .filter(entry -> entry.identifier().equals(reference.identifier()))
+                .toList();
+        HuxerUIResourceIndex.Entry entry = HuxerUIResourceIndex.SelectNavigationEntry(matches, reference.kind());
+        if (entry == null) {
+            return null;
+        }
+        PsiFile psi_file = PsiManager.getInstance(project).findFile(entry.file());
+        if (psi_file == null) {
+            return null;
+        }
+        return new PsiElement[]{new HuxerUIResourceNavigationElement(
+                psi_file, reference.identifier(), entry.offset())};
     }
 
     @Override
@@ -93,29 +73,4 @@ public final class HuxerUIResourceGotoHandler implements GotoDeclarationHandler 
     }
 
     record ResourceReference(String kind, String identifier) {}
-
-    private static void AddStringTarget(
-            Project project,
-            VirtualFile file,
-            String identifier,
-            List<PsiElement> targets
-    ) {
-        if (!file.getName().endsWith(".properties")) {
-            return;
-        }
-        Document document = FileDocumentManager.getInstance().getDocument(file);
-        PsiFile psi_file = PsiManager.getInstance(project).findFile(file);
-        if (document == null || psi_file == null) {
-            return;
-        }
-        Matcher entries = string_entry.matcher(document.getText());
-        while (entries.find()) {
-            String key = entries.group(1).trim();
-            if (ResourceNameCodec.Identifier(key).equals(identifier)) {
-                TextRange range = new TextRange(entries.start(1), entries.end(1));
-                PsiElement target = psi_file.findElementAt(range.getStartOffset());
-                targets.add(target == null ? psi_file : target);
-            }
-        }
-    }
 }

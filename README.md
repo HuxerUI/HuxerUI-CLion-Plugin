@@ -12,18 +12,20 @@ cross-platform build actions to CLion.
   an Emscripten profile, and Gradle- or Xcode-owned mobile projects do not trigger an unrelated host configuration.
 - Download the latest host SDK from the `HuxerUI/HuxerUI` GitHub Release, verify its GitHub SHA-256 digest, and
   install it below `~/.huxerui/sdk`.
-- Navigate `strings::name`, `images::name`, and `raw::name` references to their source resources instead of the
-  generated resource header. Namespace-qualified references such as `app::strings::name` are supported. Multiple
-  locale or image variants are presented by CLion as navigation targets.
-- Select a ready Android device, an iOS Simulator or physical device, the current Windows, macOS, or Linux computer,
-  or Chrome before Run.
+- Complete and navigate `strings::name`, `images::name`, and `raw::name` references from their source resources
+  instead of the generated resource header. Namespace-qualified references such as `app::strings::name` are
+  supported. Navigation goes directly to the default string catalog or canonical image instead of opening a target
+  chooser for locale and density variants.
 - Make Chrome the selected HuxerUI run target for new and existing Web-only projects so CLion invokes
   `huxerui run web` instead of trying to execute the generated `.mjs` file as a native program.
 - Keep independent Run configurations for every ready target in a multi-platform project, including the current
-  desktop host, Web, and each connected Android or iOS device.
+  desktop host, Web, and each connected Android or iOS device. Desktop targets use CLion's native CMake Application
+  configuration and debugger; CLI-owned Web and mobile targets remain run-only.
 - Hide project actions and the HuxerUI Run configuration factory outside standard HuxerUI application layouts, and
   leave resource navigation inactive in unrelated projects and in the HuxerUI framework source tree itself.
-- Build Debug or Release artifacts for every platform enabled by the project from the Build | HuxerUI menu.
+- Build Debug or Release artifacts for every platform enabled by the project from the HuxerUI build button beside
+  Run and Debug or the Build | HuxerUI menu, with live stdout, stderr, and completion status in CLion's Build tool
+  window.
 
 The application surface follows the current CLI exactly. Its platform registry contains Android, iOS, Windows,
 macOS, Linux, and Web.

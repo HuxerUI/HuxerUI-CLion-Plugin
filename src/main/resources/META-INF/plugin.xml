@@ -17,8 +17,15 @@
                 parentId="tools"
                 displayName="HuxerUI"
                 instance="org.huxerui.clion.settings.HuxerUIConfigurable"/>
-        <gotoDeclarationHandler implementation="org.huxerui.clion.resources.HuxerUIResourceGotoHandler"/>
+        <gotoDeclarationHandler
+                implementation="org.huxerui.clion.resources.HuxerUIResourceGotoHandler"
+                order="first"/>
+        <completion.contributor language="C++"
+                implementationClass="org.huxerui.clion.resources.HuxerUIResourceCompletionContributor"/>
+        <completion.contributor language="ObjectiveC"
+                implementationClass="org.huxerui.clion.resources.HuxerUIResourceCompletionContributor"/>
         <configurationType implementation="org.huxerui.clion.run.HuxerUIConfigurationType"/>
+        <postStartupActivity implementation="org.huxerui.clion.project.HuxerUIProjectStartupActivity"/>
         <notificationGroup id="HuxerUI" displayType="BALLOON"/>
     </extensions>
 
@@ -34,12 +41,9 @@
         <group id="HuxerUI.Build" class="org.huxerui.clion.build.HuxerUIBuildActionGroup"
                 text="HuxerUI" popup="true">
             <add-to-group group-id="BuildMenu" anchor="last"/>
+            <add-to-group group-id="RunToolbarMainActionGroup" anchor="after"
+                    relative-to-action="RunToolbarTopLevelExecutorActionGroup"/>
+            <add-to-group group-id="ToolbarRunGroup" anchor="after" relative-to-action="RunnerActions"/>
         </group>
-        <action id="HuxerUI.DeviceSelector"
-                class="org.huxerui.clion.run.DeviceSelectorAction"
-                text="HuxerUI Device"
-                description="Select the HuxerUI deployment device">
-            <add-to-group group-id="MainToolbarCenter" anchor="before" relative-to-action="RunConfiguration"/>
-        </action>
     </actions>
 </idea-plugin>

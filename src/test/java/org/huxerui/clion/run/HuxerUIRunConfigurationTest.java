@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 final class HuxerUIRunConfigurationTest {
     @Test
@@ -38,5 +39,16 @@ final class HuxerUIRunConfigurationTest {
                 "HuxerUI Android — Pixel 9",
                 DeviceSelectorAction.ConfigurationName(new HuxerUIDevice(
                         "android", "emulator-5554", "Pixel 9", "ready")));
+    }
+
+    @Test
+    void readsTheNativeCMakeApplicationIdentity() {
+        assertEquals(
+                new HuxerUICMakeRunConfiguration.CMakeIdentity("sample", "sample_app"),
+                HuxerUICMakeRunConfiguration.ParseCMakeIdentity("""
+                        project(sample VERSION 1.0 LANGUAGES CXX)
+                        huxerui_add_app(sample_app SOURCES src/app.cpp)
+                        """));
+        assertNull(HuxerUICMakeRunConfiguration.ParseCMakeIdentity("project(sample LANGUAGES CXX)"));
     }
 }

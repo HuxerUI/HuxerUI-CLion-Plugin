@@ -153,6 +153,17 @@ public final class DeviceSelectorAction extends ComboBoxAction implements DumbAw
             Project project,
             HuxerUIDevice device
     ) {
+        RunnerAndConfigurationSettings cmake = HuxerUICMakeRunConfiguration.Ensure(manager, project, device);
+        if (cmake != null) {
+            for (RunnerAndConfigurationSettings item : List.copyOf(manager.getAllSettings())) {
+                if (item.getConfiguration() instanceof HuxerUIRunConfiguration configuration
+                        && configuration.GetPlatform().equals(device.platform())
+                        && configuration.GetDeviceId().equals(device.id())) {
+                    manager.removeConfiguration(item);
+                }
+            }
+            return cmake;
+        }
         RunnerAndConfigurationSettings settings = manager.getAllSettings().stream()
                 .filter(item -> item.getConfiguration() instanceof HuxerUIRunConfiguration configuration
                         && configuration.GetPlatform().equals(device.platform())

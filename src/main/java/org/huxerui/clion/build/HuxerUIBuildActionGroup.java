@@ -1,7 +1,17 @@
 package org.huxerui.clion.build;
 
-import com.intellij.execution.process.CapturingProcessHandler;
-import com.intellij.execution.process.ProcessOutput;
+import com.intellij.build.DefaultBuildDescriptor;
+import com.intellij.build.BuildViewManager;
+import com.intellij.build.events.impl.FailureResultImpl;
+import com.intellij.build.events.impl.SuccessResultImpl;
+import com.intellij.build.progress.BuildProgress;
+import com.intellij.build.progress.BuildProgressDescriptor;
+import com.intellij.icons.AllIcons;
+import com.intellij.execution.configurations.GeneralCommandLine;
+import com.intellij.execution.process.KillableColoredProcessHandler;
+import com.intellij.execution.process.ProcessEvent;
+import com.intellij.execution.process.ProcessListener;
+import com.intellij.execution.process.ProcessOutputType;
 import com.intellij.openapi.actionSystem.ActionGroup;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -21,6 +31,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class HuxerUIBuildActionGroup extends ActionGroup implements DumbAware {
+    public HuxerUIBuildActionGroup() {
+        super("Build HuxerUI", true);
+        getTemplatePresentation().setDescription("Build HuxerUI artifacts for an enabled platform");
+        getTemplatePresentation().setIcon(AllIcons.Actions.Compile);
+    }
+
     @Override
     public AnAction @NotNull [] getChildren(@Nullable AnActionEvent event) {
         if (event == null || event.getProject() == null) {
@@ -65,36 +81,78 @@ public final class HuxerUIBuildActionGroup extends ActionGroup implements DumbAw
 
         @Override
         public void actionPerformed(@NotNull AnActionEvent event) {
-            new Task.Backgroundable(project_, "Build HuxerUI " + platforms_, true) {
-                private String output_ = "";
+            String title = "Build HuxerUI " + platforms_ + " (" + profile_ + ")";
+            new Task.Backgroundable(project_, title, true) {
                 private Exception failure_;
+                private boolean canceled_;
 
                 @Override
                 public void run(@NotNull ProgressIndicator indicator) {
                     indicator.setIndeterminate(true);
+                    indicator.setText(title);
+                    long start_time = System.currentTimeMillis();
+                    DefaultBuildDescriptor descriptor = new DefaultBuildDescriptor(
+                            new Object(), title, HuxerUICommand.ProjectRoot(project_).toString(), start_time);
+                    descriptor.setActivateToolWindowWhenAdded(true);
+                    descriptor.setActivateToolWindowWhenFailed(true);
+                    BuildProgress<BuildProgressDescriptor> build = BuildViewManager.createBuildProgress(project_);
+                    build.start(new HuxerUIBuildProgressDescriptor(title, descriptor));
                     try {
-                        ProcessOutput output = new CapturingProcessHandler(HuxerUICommand.Create(
+                        GeneralCommandLine command = HuxerUICommand.Create(
                                 HuxerUICommand.ProjectRoot(project_),
                                 List.of("build", platforms_, "--profile", profile_)
-                        )).runProcess(0);
-                        output_ = (output.getStdout() + output.getStderr()).strip();
-                        if (output.getExitCode() != 0) {
-                            throw new IllegalStateException(output_);
+                        );
+                        build.output("> " + command.getCommandLineString() + "\n", ProcessOutputType.SYSTEM);
+                        KillableColoredProcessHandler process = new KillableColoredProcessHandler(command);
+                        process.addProcessListener(new ProcessListener() {
+                            @Override
+                            public void onTextAvailable(
+                                    @NotNull ProcessEvent event,
+                                    @NotNull com.intellij.openapi.util.Key output_type
+                            ) {
+                                ProcessOutputType type = ProcessOutputType.fromKey(output_type);
+                                build.output(event.getText(), type == null ? ProcessOutputType.SYSTEM : type);
+                            }
+                        });
+                        process.startNotify();
+                        while (!process.waitFor(100)) {
+                            if (indicator.isCanceled()) {
+                                canceled_ = true;
+                                process.destroyProcess();
+                                process.waitFor();
+                                build.cancel(System.currentTimeMillis(), "Build canceled");
+                                return;
+                            }
+                        }
+                        Integer exit_code = process.getExitCode();
+                        if (exit_code == null || exit_code != 0) {
+                            String message = "HuxerUI build exited with code "
+                                    + (exit_code == null ? "unknown" : exit_code);
+                            failure_ = new IllegalStateException(message);
+                            build.finish(System.currentTimeMillis(), "Build failed", new FailureResultImpl(message));
+                        } else {
+                            build.finish(System.currentTimeMillis(), "Build successful", new SuccessResultImpl());
                         }
                     } catch (Exception error) {
                         failure_ = error;
+                        String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                        build.output(message + "\n", ProcessOutputType.STDERR);
+                        build.finish(System.currentTimeMillis(), "Build failed", new FailureResultImpl(message, error));
                     }
                 }
 
                 @Override
                 public void onSuccess() {
+                    if (canceled_) {
+                        return;
+                    }
                     if (failure_ != null) {
                         HuxerUINotifications.error(project_, "HuxerUI build failed", failure_.getMessage());
                     } else {
                         HuxerUINotifications.info(
                                 project_,
                                 "HuxerUI build completed",
-                                platforms_ + " (" + profile_ + ")" + (output_.isBlank() ? "" : "<br>" + Escape(output_))
+                                platforms_ + " (" + profile_ + ")"
                         );
                     }
                 }
@@ -102,7 +160,18 @@ public final class HuxerUIBuildActionGroup extends ActionGroup implements DumbAw
         }
     }
 
-    private static String Escape(String value) {
-        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
+    private record HuxerUIBuildProgressDescriptor(
+            String title,
+            DefaultBuildDescriptor descriptor
+    ) implements BuildProgressDescriptor {
+        @Override
+        public String getTitle() {
+            return title;
+        }
+
+        @Override
+        public DefaultBuildDescriptor getBuildDescriptor() {
+            return descriptor;
+        }
     }
 }
