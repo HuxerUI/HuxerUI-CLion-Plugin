@@ -41,7 +41,8 @@ public final class HuxerUIResourceCompletionContributor extends CompletionContri
                     return;
                 }
                 Set<String> identifiers = new TreeSet<>();
-                for (HuxerUIResourceIndex.Entry entry : HuxerUIResourceIndex.Find(project, resource.kind())) {
+                for (HuxerUIResourceIndex.Entry entry : HuxerUIResourceIndex.Find(
+                             project, resource.kind(), parameters.getOriginalFile().getVirtualFile())) {
                     identifiers.add(entry.identifier());
                 }
                 CompletionResultSet matching = result.withPrefixMatcher(resource.identifier());

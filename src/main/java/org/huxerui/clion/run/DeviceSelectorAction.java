@@ -6,14 +6,15 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
+import com.intellij.openapi.actionSystem.ex.ComboBoxAction;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.actionSystem.ex.ComboBoxAction;
 import org.huxerui.clion.HuxerUINotifications;
 import org.huxerui.clion.PlatformNames;
 import org.huxerui.clion.project.HuxerUIProjectService;
+import org.huxerui.clion.settings.HuxerUISettings;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.JComponent;
@@ -24,7 +25,8 @@ public final class DeviceSelectorAction extends ComboBoxAction implements DumbAw
     public void update(@NotNull AnActionEvent event) {
         Project project = event.getProject();
         boolean visible = project != null && HuxerUIProjectService.Get(project).IsProject();
-        event.getPresentation().setEnabledAndVisible(visible);
+        event.getPresentation().setVisible(visible);
+        event.getPresentation().setEnabled(visible && HuxerUISettings.getInstance().HasValidSdk());
         if (visible) {
             HuxerUIProjectService service = HuxerUIProjectService.Get(project);
             service.EnsureDevicesLoaded();

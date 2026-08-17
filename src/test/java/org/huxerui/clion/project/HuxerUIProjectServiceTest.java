@@ -8,49 +8,64 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class HuxerUIProjectServiceTest {
     @Test
-    void recognizesCurrentApplicationLayout(@TempDir Path root) throws Exception {
-        CreateApplication(root);
+    void recognizesApplicationsFromTheirCMakeCommand(@TempDir Path root) throws Exception {
+        WriteCMake(root, "huxerui_add_app(sample SOURCES src/custom.cpp)\n");
 
+        assertEquals(HuxerUIProjectService.ProjectKind.APPLICATION, HuxerUIProjectService.FindProjectKind(root));
         assertEquals(root, HuxerUIProjectService.FindApplicationRoot(root));
     }
 
     @Test
-    void resolvesModulePreviewApplication(@TempDir Path root) throws Exception {
+    void recognizesModulesAndResolvesTheirPreviewApplication(@TempDir Path root) throws Exception {
+        WriteCMake(root, "HUXERUI_ADD_MODULE(camera SOURCES src/camera.cpp)\n");
         Path preview = root.resolve("examples/preview");
-        CreateApplication(preview);
+        WriteCMake(preview, "huxerui_add_app(camera_preview SOURCES src/preview.cpp)\n");
 
+        assertEquals(HuxerUIProjectService.ProjectKind.MODULE, HuxerUIProjectService.FindProjectKind(root));
         assertEquals(preview, HuxerUIProjectService.FindApplicationRoot(root));
+        assertEquals(root, HuxerUIProjectService.FindResourceRoot(root, root.resolve("src/camera.cpp")));
+        assertEquals(preview, HuxerUIProjectService.FindResourceRoot(root, preview.resolve("src/preview.cpp")));
     }
 
     @Test
-    void rejectsTheRemovedMainSourceLayout(@TempDir Path root) throws Exception {
-        Files.createDirectories(root.resolve("src"));
-        Files.createDirectories(root.resolve("platform/linux"));
-        Files.createFile(root.resolve("CMakeLists.txt"));
-        Files.createFile(root.resolve("src/main.cpp"));
+    void recognizesModulesEvenBeforeTheyHaveAPreviewShell(@TempDir Path root) throws Exception {
+        WriteCMake(root, "huxerui_add_module(camera)\n");
 
+        assertEquals(HuxerUIProjectService.ProjectKind.MODULE, HuxerUIProjectService.FindProjectKind(root));
         assertNull(HuxerUIProjectService.FindApplicationRoot(root));
     }
 
     @Test
-    void rejectsFrameworkOrUnrelatedLookalikeLayouts(@TempDir Path root) throws Exception {
+    void ignoresCommandNamesInCommentsAndCMakeStrings(@TempDir Path root) throws Exception {
+        WriteCMake(root, """
+                # huxerui_add_app(commented)
+                set(TEXT "huxerui_add_module(quoted)")
+                #[=[ huxerui_add_app(bracket_comment) ]=]
+                set(BRACKET [=[huxerui_add_module(bracket_argument)]=])
+                """);
+
+        assertEquals(HuxerUIProjectService.ProjectKind.NONE, HuxerUIProjectService.FindProjectKind(root));
+    }
+
+    @Test
+    void doesNotUseGeneratedCachesOrLookalikeDirectoriesForRecognition(@TempDir Path root) throws Exception {
+        Files.createDirectories(root.resolve(".huxerui/build"));
         Files.createDirectories(root.resolve("src"));
         Files.createDirectories(root.resolve("platform/linux"));
         Files.createDirectories(root.resolve("resources"));
-        Files.createFile(root.resolve("CMakeLists.txt"));
-        Files.createFile(root.resolve("src/app.cpp"));
+        WriteCMake(root, "add_executable(sample src/app.cpp)\n");
 
+        assertEquals(HuxerUIProjectService.ProjectKind.NONE, HuxerUIProjectService.FindProjectKind(root));
         assertNull(HuxerUIProjectService.FindApplicationRoot(root));
+        assertTrue(Files.isDirectory(root.resolve(".huxerui")));
     }
 
-    private static void CreateApplication(Path root) throws Exception {
-        Files.createDirectories(root.resolve("src"));
-        Files.createDirectories(root.resolve("platform/linux"));
-        Files.createFile(root.resolve("CMakeLists.txt"));
-        Files.createFile(root.resolve("src/app.cpp"));
-        Files.createFile(root.resolve("platform/linux/huxerui.cmake"));
+    private static void WriteCMake(Path root, String content) throws Exception {
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("CMakeLists.txt"), content);
     }
 }

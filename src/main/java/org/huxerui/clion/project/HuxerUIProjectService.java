@@ -15,6 +15,7 @@ import org.huxerui.clion.settings.HuxerUISettings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -25,6 +26,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @State(name = "HuxerUIProject", storages = @Storage("huxerui.xml"))
 public final class HuxerUIProjectService implements PersistentStateComponent<HuxerUIProjectService.StateData> {
     public static final List<String> all_platforms = List.of("android", "ios", "windows", "macos", "linux", "web");
+
+    enum ProjectKind { NONE, APPLICATION, MODULE }
 
     public static final class StateData {
         public String platform = "";
@@ -37,6 +40,7 @@ public final class HuxerUIProjectService implements PersistentStateComponent<Hux
     private StateData state_ = new StateData();
     private volatile List<HuxerUIDevice> devices_ = List.of();
     private final AtomicBoolean refresh_scheduled_ = new AtomicBoolean();
+    private final AtomicBoolean sdk_prompt_shown_ = new AtomicBoolean();
 
     public HuxerUIProjectService(Project project) {
         project_ = project;
@@ -58,7 +62,7 @@ public final class HuxerUIProjectService implements PersistentStateComponent<Hux
 
     public boolean IsProject() {
         String base_path = project_.getBasePath();
-        return base_path != null && FindApplicationRoot(Path.of(base_path)) != null;
+        return base_path != null && FindProjectKind(Path.of(base_path)) != ProjectKind.NONE;
     }
 
     public List<String> EnabledPlatforms() {
@@ -77,38 +81,155 @@ public final class HuxerUIProjectService implements PersistentStateComponent<Hux
     }
 
     public static @Nullable Path FindApplicationRoot(Path project_root) {
-        for (Path candidate : List.of(project_root, project_root.resolve("examples/preview"))) {
-            if (Files.isRegularFile(candidate.resolve("CMakeLists.txt"))
-                    && Files.isRegularFile(candidate.resolve("src/app.cpp"))
-                    && HasGeneratedPlatformShell(candidate.resolve("platform"))) {
-                return candidate;
-            }
+        ProjectKind root_kind = FindProjectKind(project_root);
+        if (root_kind == ProjectKind.APPLICATION) {
+            return project_root;
         }
-        return null;
+        Path preview = project_root.resolve("examples/preview");
+        return root_kind == ProjectKind.MODULE && FindProjectKind(preview) == ProjectKind.APPLICATION ? preview : null;
     }
 
-    private static boolean HasGeneratedPlatformShell(Path platforms) {
-        for (String platform : all_platforms) {
-            Path directory = platforms.resolve(platform);
-            if (Files.isRegularFile(directory.resolve("huxerui.cmake"))) {
-                return true;
+    public static @Nullable Path FindResourceRoot(Path project_root, @Nullable Path source_file) {
+        ProjectKind root_kind = FindProjectKind(project_root);
+        if (root_kind == ProjectKind.APPLICATION) {
+            return project_root;
+        }
+        if (root_kind != ProjectKind.MODULE) {
+            return null;
+        }
+        Path preview = project_root.resolve("examples/preview").normalize();
+        if (source_file != null && source_file.toAbsolutePath().normalize().startsWith(preview)
+                && FindProjectKind(preview) == ProjectKind.APPLICATION) {
+            return preview;
+        }
+        return project_root;
+    }
+
+    static ProjectKind FindProjectKind(Path project_root) {
+        Path cmake = project_root.resolve("CMakeLists.txt");
+        if (!Files.isRegularFile(cmake)) {
+            return ProjectKind.NONE;
+        }
+        try {
+            String content = Files.readString(cmake);
+            if (ContainsCMakeCommand(content, "huxerui_add_app")) {
+                return ProjectKind.APPLICATION;
             }
-            if (platform.equals("ios")
-                    && Files.isRegularFile(directory.resolve("App/main.mm"))
-                    && Files.isRegularFile(directory.resolve("Config/Base.xcconfig"))) {
-                return true;
+            return ContainsCMakeCommand(content, "huxerui_add_module") ? ProjectKind.MODULE : ProjectKind.NONE;
+        } catch (IOException ignored) {
+            return ProjectKind.NONE;
+        }
+    }
+
+    static boolean ContainsCMakeCommand(String content, String command) {
+        int offset = 0;
+        while (offset < content.length()) {
+            char character = content.charAt(offset);
+            if (character == '#') {
+                offset = SkipComment(content, offset);
+            } else if (character == '"') {
+                offset = SkipQuoted(content, offset);
+            } else if (character == '[' && BracketEquals(content, offset) >= 0) {
+                offset = SkipBracket(content, offset);
+            } else if (IsIdentifierStart(character)) {
+                int end = offset + 1;
+                while (end < content.length() && IsIdentifierPart(content.charAt(end))) {
+                    ++end;
+                }
+                String identifier = content.substring(offset, end);
+                int next = SkipWhitespaceAndComments(content, end);
+                if (identifier.equalsIgnoreCase(command) && next < content.length() && content.charAt(next) == '(') {
+                    return true;
+                }
+                offset = end;
+            } else {
+                ++offset;
             }
         }
         return false;
+    }
+
+    private static int SkipWhitespaceAndComments(String content, int offset) {
+        int current = offset;
+        while (current < content.length()) {
+            if (Character.isWhitespace(content.charAt(current))) {
+                ++current;
+            } else if (content.charAt(current) == '#') {
+                current = SkipComment(content, current);
+            } else {
+                break;
+            }
+        }
+        return current;
+    }
+
+    private static int SkipComment(String content, int offset) {
+        if (offset + 1 < content.length() && content.charAt(offset + 1) == '['
+                && BracketEquals(content, offset + 1) >= 0) {
+            return SkipBracket(content, offset + 1);
+        }
+        int newline = content.indexOf('\n', offset + 1);
+        return newline < 0 ? content.length() : newline + 1;
+    }
+
+    private static int SkipQuoted(String content, int offset) {
+        int current = offset + 1;
+        while (current < content.length()) {
+            if (content.charAt(current) == '\\') {
+                current += 2;
+            } else if (content.charAt(current) == '"') {
+                return current + 1;
+            } else {
+                ++current;
+            }
+        }
+        return content.length();
+    }
+
+    private static int SkipBracket(String content, int offset) {
+        int equals = BracketEquals(content, offset);
+        if (equals < 0) {
+            return offset + 1;
+        }
+        String closing = "]"
+                + "=".repeat(equals) + "]";
+        int end = content.indexOf(closing, offset + equals + 2);
+        return end < 0 ? content.length() : end + closing.length();
+    }
+
+    private static int BracketEquals(String content, int offset) {
+        if (offset >= content.length() || content.charAt(offset) != '[') {
+            return -1;
+        }
+        int current = offset + 1;
+        while (current < content.length() && content.charAt(current) == '=') {
+            ++current;
+        }
+        return current < content.length() && content.charAt(current) == '[' ? current - offset - 1 : -1;
+    }
+
+    private static boolean IsIdentifierStart(char character) {
+        return character == '_' || Character.isLetter(character);
+    }
+
+    private static boolean IsIdentifierPart(char character) {
+        return character == '_' || Character.isLetterOrDigit(character);
     }
 
     public List<HuxerUIDevice> Devices() {
         return devices_;
     }
 
+    boolean MarkSdkPromptShown() {
+        return sdk_prompt_shown_.compareAndSet(false, true);
+    }
+
+    void ResetSdkPrompt() {
+        sdk_prompt_shown_.set(false);
+    }
+
     public void EnsureDevicesLoaded() {
-        if (!devices_.isEmpty()
-                || HuxerUISettings.getInstance().GetSdkHome().isBlank()
+        if (!devices_.isEmpty() || !HuxerUISettings.getInstance().HasValidSdk()
                 || !refresh_scheduled_.compareAndSet(false, true)) {
             return;
         }

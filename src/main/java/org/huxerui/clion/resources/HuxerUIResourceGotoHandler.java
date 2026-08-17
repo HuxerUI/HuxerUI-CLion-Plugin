@@ -38,9 +38,13 @@ public final class HuxerUIResourceGotoHandler implements GotoDeclarationHandler 
         if (!HuxerUIProjectService.Get(project).IsProject()) {
             return null;
         }
-        List<HuxerUIResourceIndex.Entry> matches = HuxerUIResourceIndex.Find(project, reference.kind()).stream()
-                .filter(entry -> entry.identifier().equals(reference.identifier()))
-                .toList();
+        PsiFile source_file = source_element.getContainingFile();
+        List<HuxerUIResourceIndex.Entry> matches =
+                HuxerUIResourceIndex
+                        .Find(project, reference.kind(), source_file == null ? null : source_file.getVirtualFile())
+                        .stream()
+                        .filter(entry -> entry.identifier().equals(reference.identifier()))
+                        .toList();
         HuxerUIResourceIndex.Entry entry = HuxerUIResourceIndex.SelectNavigationEntry(matches, reference.kind());
         if (entry == null) {
             return null;

@@ -5,13 +5,18 @@ cross-platform build actions to CLion.
 
 ## Features
 
-- Create an application or compile-time module through the current HuxerUI CLI from CLion's New Project wizard,
-  including the Welcome screen, a dedicated HuxerUI category, and separate HuxerUI App and HuxerUI Module entries.
-- Set an optional reverse-domain Application ID that the CLI projects to Android package names and Apple bundle IDs.
+- Create an application or compile-time module from templates bundled with the plugin, without requiring an installed
+  SDK or CLI. The Welcome screen and File | New Project expose a dedicated HuxerUI category with separate HuxerUI App
+  and HuxerUI Module entries.
+- Set an optional reverse-domain Application ID that the templates project to Android package names and Apple bundle
+  identifiers.
 - Configure CLion only for selected platforms: the current desktop host receives a native CMake profile, Web receives
   an Emscripten profile, and Gradle- or Xcode-owned mobile projects do not trigger an unrelated host configuration.
 - Download the latest host SDK from the `HuxerUI/HuxerUI` GitHub Release, verify its GitHub SHA-256 digest, and
   install it below `~/.huxerui/sdk`.
+- Recognize HuxerUI applications and modules from active `huxerui_add_app(...)` and `huxerui_add_module(...)` calls in
+  their root CMake file. Generated `.huxerui` build caches, source filenames, and platform shell directories do not
+  participate in detection. A recognized project without a valid SDK offers Install SDK and Configure SDK actions.
 - Complete and navigate `strings::name`, `images::name`, and `raw::name` references from their source resources
   instead of the generated resource header. Namespace-qualified references such as `app::strings::name` are
   supported. Navigation goes directly to the default string catalog or canonical image instead of opening a target
@@ -36,17 +41,18 @@ macOS, Linux, and Web.
 - A JDK 25 installation for building this plugin. Plugin bytecode targets Java 21.
 - The native tools required by the selected HuxerUI platforms.
 
-Configure an existing SDK or source checkout in Settings | Tools | HuxerUI. A source checkout must have a built CLI
-at `build/bin/huxerui` or another supported CLion CMake build path. The configured directory is exported as
-`HUXERUI_HOME` to the CLI and CLion CMake profiles.
+Project creation does not require an SDK. Configure an existing SDK or source checkout in Settings | Tools | HuxerUI
+to enable CMake, build, run, and device integration. CLI-owned build and run operations require `bin/huxerui`,
+`build/bin/huxerui`, or another supported CLion CMake build path. The configured directory is exported as
+`HUXERUI_HOME` to the CLI and CLion CMake profiles. Opening a recognized HuxerUI CMake project without an SDK shows an
+installation and configuration prompt.
 
 Create a project from the Welcome screen with New Project | HuxerUI | HuxerUI App or HuxerUI Module, or use the same
 HuxerUI category under File | New Project while a project is open. The App page provides an optional Application ID
 field and both entries provide platform checkboxes below the project location. CLion owns the new project lifecycle,
-while the plugin reports generation phases and CLI output in the standard cancellable project-creation progress
-dialog.
+while the plugin writes its bundled standard templates in the cancellable project-creation progress dialog.
 Generated applications use `src/app.cpp` plus the selected native entry points such as `platform/linux/main.cpp`.
-Generated modules include the CLI-owned `examples/preview` application and selected native module packages.
+Generated modules include an `examples/preview` application and selected native module packages.
 Web project creation requires `em-config` on `PATH` so the plugin can locate Emscripten's CMake toolchain file.
 
 ## SDK release contract

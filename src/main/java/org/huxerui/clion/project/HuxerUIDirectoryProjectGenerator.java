@@ -5,7 +5,6 @@ import com.intellij.execution.process.CapturingProcessHandler;
 import com.intellij.execution.process.ProcessOutput;
 import com.intellij.facet.ui.ValidationResult;
 import com.intellij.ide.util.projectWizard.SettingsStep;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.progress.ProcessCanceledException;
@@ -28,8 +27,6 @@ import kotlin.coroutines.EmptyCoroutineContext;
 import kotlinx.coroutines.BuildersKt;
 import kotlinx.coroutines.CoroutineStart;
 import org.huxerui.clion.PlatformNames;
-import org.huxerui.clion.run.DeviceSelectorAction;
-import org.huxerui.clion.run.HuxerUIDevice;
 import org.huxerui.clion.settings.HuxerUISettings;
 import org.jetbrains.annotations.NotNull;
 
@@ -173,8 +170,10 @@ public abstract class HuxerUIDirectoryProjectGenerator
             if (root != null) {
                 root.refresh(false, true);
             }
-            ConfigureCMake(project, destination, settings.platforms());
-            ConfigureInitialRunTargets(project, settings.platforms());
+            if (HuxerUISettings.getInstance().HasValidSdk()) {
+                ConfigureCMake(project, destination, settings.platforms());
+            }
+            HuxerUIProjectStartupActivity.Activate(project);
         } catch (ProcessCanceledException error) {
             throw error;
         } catch (Exception error) {
@@ -190,6 +189,15 @@ public abstract class HuxerUIDirectoryProjectGenerator
                 settings.getProfiles(), platforms, sdk_home, HuxerUIProjectService.HostPlatformId(),
                 emscripten_toolchain));
         LinkCMakeProject(project, destination);
+    }
+
+    static void ConfigureRecognizedProject(Project project) throws Exception {
+        String base_path = project.getBasePath();
+        if (base_path == null) {
+            throw new IllegalStateException("The project has no local base directory");
+        }
+        HuxerUIProjectService service = HuxerUIProjectService.Get(project);
+        ConfigureCMake(project, Path.of(base_path), service.EnabledPlatforms());
     }
 
     private static List<CMakeSettings.Profile> CreateCMakeProfiles(List<CMakeSettings.Profile> existing,
@@ -226,25 +234,6 @@ public abstract class HuxerUIDirectoryProjectGenerator
             return normalized_existing;
         }
         return normalized_existing + " " + normalized_additional;
-    }
-
-    private static void ConfigureInitialRunTargets(Project project, List<String> platforms) {
-        List<HuxerUIDevice> devices = HuxerUIProjectService.ImmediateRunDevices(
-                platforms, HuxerUIProjectService.HostPlatformId());
-        if (devices.isEmpty()) {
-            return;
-        }
-        Runnable configure = () -> {
-            if (project.isDisposed()) {
-                return;
-            }
-            DeviceSelectorAction.SyncRunConfigurations(project, devices);
-        };
-        if (ApplicationManager.getApplication().isDispatchThread()) {
-            configure.run();
-        } else {
-            ApplicationManager.getApplication().invokeAndWait(configure);
-        }
     }
 
     static List<CMakeProfilePlan> PlanCMakeProfiles(

@@ -44,15 +44,31 @@ public final class HuxerUISettings implements PersistentStateComponent<HuxerUISe
         state_.sdk_home = sdk_home == null ? "" : sdk_home.trim();
     }
 
+    public @Nullable Path GetValidSdkHome() {
+        if (state_.sdk_home.isBlank()) {
+            return null;
+        }
+        try {
+            Path home = Path.of(state_.sdk_home).toAbsolutePath().normalize();
+            return SdkLayout.IsValid(home) ? home : null;
+        } catch (java.nio.file.InvalidPathException ignored) {
+            return null;
+        }
+    }
+
+    public boolean HasValidSdk() {
+        return GetValidSdkHome() != null;
+    }
+
     public Path RequireSdkHome() {
+        Path home = GetValidSdkHome();
+        if (home != null) {
+            return home;
+        }
         if (state_.sdk_home.isBlank()) {
             throw new IllegalStateException("HuxerUI SDK is not configured. Install one from Tools | HuxerUI.");
         }
-        Path home = Path.of(state_.sdk_home).toAbsolutePath().normalize();
-        if (!SdkLayout.IsValid(home)) {
-            throw new IllegalStateException("Configured HUXERUI_HOME is not a valid SDK: " + home);
-        }
-        return home;
+        throw new IllegalStateException("Configured HUXERUI_HOME is not a valid SDK: " + state_.sdk_home);
     }
 
     public Path RequireCli() {

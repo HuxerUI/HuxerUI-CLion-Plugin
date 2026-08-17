@@ -1,17 +1,17 @@
 package org.huxerui.clion.build;
 
-import com.intellij.build.DefaultBuildDescriptor;
 import com.intellij.build.BuildViewManager;
+import com.intellij.build.DefaultBuildDescriptor;
 import com.intellij.build.events.impl.FailureResultImpl;
 import com.intellij.build.events.impl.SuccessResultImpl;
 import com.intellij.build.progress.BuildProgress;
 import com.intellij.build.progress.BuildProgressDescriptor;
-import com.intellij.icons.AllIcons;
 import com.intellij.execution.configurations.GeneralCommandLine;
 import com.intellij.execution.process.KillableColoredProcessHandler;
 import com.intellij.execution.process.ProcessEvent;
 import com.intellij.execution.process.ProcessListener;
 import com.intellij.execution.process.ProcessOutputType;
+import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.ActionGroup;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -24,6 +24,7 @@ import org.huxerui.clion.HuxerUINotifications;
 import org.huxerui.clion.PlatformNames;
 import org.huxerui.clion.cli.HuxerUICommand;
 import org.huxerui.clion.project.HuxerUIProjectService;
+import org.huxerui.clion.settings.HuxerUISettings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,7 +65,10 @@ public final class HuxerUIBuildActionGroup extends ActionGroup implements DumbAw
     public void update(@NotNull AnActionEvent event) {
         Project project = event.getProject();
         boolean visible = project != null && HuxerUIProjectService.Get(project).IsProject();
-        event.getPresentation().setEnabledAndVisible(visible);
+        event.getPresentation().setVisible(visible);
+        var sdk_home = HuxerUISettings.getInstance().GetValidSdkHome();
+        event.getPresentation().setEnabled(
+                visible && sdk_home != null && HuxerUISettings.SdkLayout.FindCli(sdk_home) != null);
     }
 
     private static final class BuildAction extends AnAction implements DumbAware {

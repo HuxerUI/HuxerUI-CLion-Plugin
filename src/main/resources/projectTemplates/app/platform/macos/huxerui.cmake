@@ -1,0 +1,3 @@
+set(HUXERUI_MACOS_BUNDLE_NAME "TemplateApp")
+set(HUXERUI_MACOS_BUNDLE_IDENTIFIER "dev.example.template")
+set(HUXERUI_MACOS_INFO_PLIST "${CMAKE_CURRENT_LIST_DIR}/Info.plist.in")

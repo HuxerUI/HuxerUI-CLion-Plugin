@@ -26,7 +26,7 @@ final class HuxerUIResourceIndex {
 
     record ParsedEntry(String identifier, int offset) {}
 
-    static List<Entry> Find(Project project, String kind) {
+    static List<Entry> Find(Project project, String kind, @Nullable VirtualFile source_file) {
         String base_path = project.getBasePath();
         if (base_path == null) {
             return List.of();
@@ -35,11 +35,11 @@ final class HuxerUIResourceIndex {
         if (project_root == null) {
             return List.of();
         }
-        VirtualFile application_root = FindApplicationRoot(project_root);
-        if (application_root == null) {
+        VirtualFile resource_owner = FindResourceOwner(project_root, source_file);
+        if (resource_owner == null) {
             return List.of();
         }
-        VirtualFile resource_root = application_root.findFileByRelativePath("resources/" + kind);
+        VirtualFile resource_root = resource_owner.findFileByRelativePath("resources/" + kind);
         if (resource_root == null || !resource_root.isDirectory()) {
             return List.of();
         }
@@ -87,13 +87,15 @@ final class HuxerUIResourceIndex {
         return 0;
     }
 
-    private static @Nullable VirtualFile FindApplicationRoot(VirtualFile project_root) {
+    private static @Nullable VirtualFile FindResourceOwner(
+            VirtualFile project_root, @Nullable VirtualFile source_file) {
         Path root_path = project_root.toNioPath();
-        Path application_path = HuxerUIProjectService.FindApplicationRoot(root_path);
-        if (application_path == null) {
+        Path resource_path =
+                HuxerUIProjectService.FindResourceRoot(root_path, source_file == null ? null : source_file.toNioPath());
+        if (resource_path == null) {
             return null;
         }
-        Path relative = root_path.relativize(application_path);
+        Path relative = root_path.relativize(resource_path);
         return relative.toString().isEmpty()
                 ? project_root
                 : project_root.findFileByRelativePath(relative.toString().replace('\\', '/'));

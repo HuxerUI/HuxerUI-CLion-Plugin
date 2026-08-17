@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "org.huxerui"
-version = "0.1.15"
+version = "0.1.16"
 
 val clionPath = providers.gradleProperty("clionPath")
 
